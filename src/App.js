@@ -27,8 +27,8 @@ const initialState = {
   input: "",
   imageUrl: "",
   box: [],
-  route: "home",
-  isSignedIn: true,
+  route: window.sessionStorage.getItem('token') ? "home" : "signin",
+  isSignedIn: window.sessionStorage.getItem('token') !== null,
   user: {
     id: "",
     name: "",
@@ -44,35 +44,67 @@ class App extends Component {
     super();
     this.state = initialState;
   }
+  componentDidMount() {
+    const token = window.sessionStorage.getItem('token')
+    if (token) {
+      fetch(`http://localhost:3001/signin`, {
+        method: "post",
+        headers: {
+          "Content-type": "application/json",
+          "Authorization": token
+        }
+      }).then(resp => {
+        return resp.json()
+      })
+        .then(data => {
+          if (data && data.id) {
+            this.fetchUserProfile(data.id)
+          }
+        })
+        .catch(err => { console.log(err) });
+    }
+  }
 
-  loadUser = data => {
-    this.setState({
-      user: {
-        id: data.id,
-        name: data.name,
-        email: data.email,
-        entries: data.entries,
-        joined: data.joined
+  fetchUserProfile = userId => {
+    const token = window.sessionStorage.getItem('token')
+    return fetch(`http://localhost:3001/profile/${userId}`, {
+      method: "GET",
+      headers: {
+        "Content-type": "application/json",
+        "Authorization": token
       }
+    }).then(res =>
+      res.json()
+    ).then(user => {
+      this.setState(() => { return { user: { ...user } } });
+
+      this.onRouteChange('home')
     });
   };
 
+  loadUser = userId => {
+    this.fetchUserProfile(userId)
+  };
+
   calculateFaceLocation = data => {
-    const clarifaiFaceArr = data.outputs[0].data.regions;
-    const image = document.getElementById("inputimage");
-    const width = Number(image.width);
-    const height = Number(image.height);
-    let faceArr = [];
-    clarifaiFaceArr.forEach(({ region_info }) => {
-      const { bounding_box: clarifaiFace } = region_info;
-      faceArr.push({
-        leftCol: clarifaiFace.left_col * width,
-        topRow: clarifaiFace.top_row * height,
-        rightCol: width - clarifaiFace.right_col * width,
-        bottomRow: height - clarifaiFace.bottom_row * height
+    if (data && data.outputs) {
+      const clarifaiFaceArr = data.outputs[0].data.regions;
+      const image = document.getElementById("inputimage");
+      const width = Number(image.width);
+      const height = Number(image.height);
+      let faceArr = [];
+      clarifaiFaceArr.forEach(({ region_info }) => {
+        const { bounding_box: clarifaiFace } = region_info;
+        faceArr.push({
+          leftCol: clarifaiFace.left_col * width,
+          topRow: clarifaiFace.top_row * height,
+          rightCol: width - clarifaiFace.right_col * width,
+          bottomRow: height - clarifaiFace.bottom_row * height
+        });
       });
-    });
-    return faceArr;
+      return faceArr;
+    }
+    return
   };
   // calculateFaceLocation = data => {
   //   console.log(data);
@@ -89,7 +121,7 @@ class App extends Component {
   //   };
   // };
 
-  displayFaceBox = box => {
+  displayFaceBox = (box = []) => {
     this.setState({ box: [...box] });
   };
 
@@ -98,10 +130,14 @@ class App extends Component {
   };
 
   onButtonSubmit = () => {
+    const token = window.sessionStorage.getItem('token')
     this.setState({ imageUrl: this.state.input });
     fetch("http://localhost:3001/imageurl", {
       method: "post",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": token
+      },
       body: JSON.stringify({
         input: this.state.input
       })
@@ -111,7 +147,10 @@ class App extends Component {
         if (response) {
           fetch("http://localhost:3001/image", {
             method: "put",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": token
+            },
             body: JSON.stringify({
               id: this.state.user.id
             })
@@ -158,6 +197,8 @@ class App extends Component {
             <Profile
               isProfileOpen={isProfileOpen}
               toggleModal={this.toggleProfileOpen}
+              loadUser={this.loadUser}
+              user={this.state.user}
             />
           </Modal>
         )}
@@ -177,11 +218,11 @@ class App extends Component {
         ) : route === "signin" ? (
           <Signin loadUser={this.loadUser} onRouteChange={this.onRouteChange} />
         ) : (
-          <Register
-            loadUser={this.loadUser}
-            onRouteChange={this.onRouteChange}
-          />
-        )}
+              <Register
+                loadUser={this.loadUser}
+                onRouteChange={this.onRouteChange}
+              />
+            )}
       </div>
     );
   }

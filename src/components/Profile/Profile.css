@@ -9,3 +9,15 @@
   top: 0;
   width: 100%;
 }
+
+.modal-close {
+  font-size: 3rem;
+  font-style: bold;
+  cursor: pointer;
+  color: grey;
+}
+
+.modal-close:hover {
+  color: red;
+  cursor: pointer;
+}

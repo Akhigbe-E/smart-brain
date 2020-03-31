@@ -36,7 +36,10 @@ const ProfileIcon = ({ onRouteChange, toggleModal }) => {
           <DropdownItem onClick={() => toggleModal()}>
             View Profile
           </DropdownItem>
-          <DropdownItem onClick={() => onRouteChange("signout")}>
+          <DropdownItem onClick={() => {
+            window.sessionStorage.removeItem('token')
+            return onRouteChange("signout")
+          }}>
             Sign Out
           </DropdownItem>
         </DropdownMenu>
